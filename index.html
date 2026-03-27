@@ -1149,96 +1149,103 @@
         window.addEventListener('scroll', revealOnScroll);
 
         // ====================== PREMIUM 3D PARTICLE BACKGROUND ======================
-        let scene, camera, renderer, particles;
-        let mouseX = 0, mouseY = 0;
+let scene, camera, renderer, particles;
+let mouseX = 0, mouseY = 0;
+let targetRotationY = 0;   // ← New: target rotation
 
-        function initParticles() {
-            const canvas = document.getElementById('hero-canvas');
-            if (!canvas) return;
+function initParticles() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
 
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-            renderer = new THREE.WebGLRenderer({
-                canvas: canvas,
-                antialias: true,
-                alpha: true
-            });
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: true
+    });
 
-            const hero = document.querySelector('.hero');
-            const width = hero.clientWidth;
-            const height = hero.clientHeight;
-            renderer.setSize(width, height);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const hero = document.querySelector('.hero');
+    const width = hero.clientWidth;
+    const height = hero.clientHeight;
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // 3000 glowing particles in 3D space (cyan/neon theme)
-            const count = 3000;
-            const positions = new Float32Array(count * 3);
-            const colors = new Float32Array(count * 3);
+    const count = 3000;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
 
-            for (let i = 0; i < count * 3; i += 3) {
-                positions[i]     = (Math.random() - 0.5) * 1800;
-                positions[i + 1] = (Math.random() - 0.5) * 1800;
-                positions[i + 2] = (Math.random() - 0.5) * 1800;
+    for (let i = 0; i < count * 3; i += 3) {
+        positions[i]     = (Math.random() - 0.5) * 1800;
+        positions[i + 1] = (Math.random() - 0.5) * 1800;
+        positions[i + 2] = (Math.random() - 0.5) * 1800;
 
-                // Neon cyan tones
-                colors[i]     = 0.05;
-                colors[i + 1] = 0.85;
-                colors[i + 2] = 1.0;
-            }
+        colors[i]     = 0.05;
+        colors[i + 1] = 0.85;
+        colors[i + 2] = 1.0;
+    }
 
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-            const material = new THREE.PointsMaterial({
-                size: 3.8,
-                vertexColors: true,
-                blending: THREE.AdditiveBlending,
-                transparent: true,
-                depthTest: false,
-                sizeAttenuation: true
-            });
+    const material = new THREE.PointsMaterial({
+        size: 3.8,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthTest: false,
+        sizeAttenuation: true
+    });
 
-            particles = new THREE.Points(geometry, material);
-            scene.add(particles);
+    particles = new THREE.Points(geometry, material);
+    scene.add(particles);
 
-            camera.position.z = 850;
+    camera.position.z = 850;
 
-            // Mouse interaction
-            document.addEventListener('mousemove', (e) => {
-                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-            });
+    // Mouse interaction
+    document.addEventListener('mousemove', (e) => {
+        mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+        mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
 
-            // Resize handler
-            window.addEventListener('resize', () => {
-                const heroEl = document.querySelector('.hero');
-                if (heroEl && renderer) {
-                    const w = heroEl.clientWidth;
-                    const h = heroEl.clientHeight;
-                    camera.aspect = w / h;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(w, h);
-                }
-            });
-
-            animateParticles();
+    // Resize handler (same)
+    window.addEventListener('resize', () => {
+        const heroEl = document.querySelector('.hero');
+        if (heroEl && renderer) {
+            const w = heroEl.clientWidth;
+            const h = heroEl.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
         }
+    });
 
-        function animateParticles() {
-            requestAnimationFrame(animateParticles);
-            
-            if (particles) {
-                particles.rotation.y += 0.00015;
-                // Smooth 3D mouse follow
-                particles.rotation.x = mouseY * 0.12;
-                particles.rotation.y += mouseX * 0.08;
-            }
-            
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
-        }
+    animateParticles();
+}
+
+function animateParticles() {
+    requestAnimationFrame(animateParticles);
+    
+    if (particles) {
+        // Gentle auto rotation (you can reduce or remove this)
+        particles.rotation.y += 0.00015;
+
+        // === SMOOTH MOUSE INTERACTION ===
+        targetRotationY = mouseX * 0.8;                    // ← how strong the mouse effect is (0.6 ~ 1.2 feels good)
+        
+        // Smoothly move current rotation toward target (this is the key!)
+        particles.rotation.x = THREE.MathUtils.lerp(particles.rotation.x, mouseY * 0.6, 0.08);
+        particles.rotation.y = THREE.MathUtils.lerp(particles.rotation.y, targetRotationY, 0.06);
+        
+        // Optional: Add a little extra slow rotation when mouse is near center
+        // particles.rotation.y += 0.00008;
+    }
+    
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+}
 
         // ====================== PREMIUM 3D TILT CARDS ======================
         function initTiltCards() {
